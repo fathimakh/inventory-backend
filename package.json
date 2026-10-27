@@ -15,7 +15,7 @@
     "rest-api",
     "in-memory"
   ],
-  "author": "",
+  "author": "Fathima K H",
   "license": "ISC",
   "engines": {
     "node": ">=18"
