@@ -934,9 +934,19 @@
                 "inventory",
                 "{{existingId}}"
               ]
-            }
+            },
+            "description": "Uses the first id returned by \"Get all items\". Skipped when the inventory is empty (SEED_DATA=false)."
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('existingId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -1163,7 +1173,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.variables.set('dupName', '  ' + pm.collectionVariables.get('itemName').toUpperCase() + ' ');"
+                  "pm.variables.set('dupName', '  ' + (pm.collectionVariables.get('itemName') || '').toUpperCase() + ' ');"
                 ]
               }
             },
@@ -1179,6 +1189,59 @@
                   "  pm.expect(message).to.include(pm.collectionVariables.get('itemName'));",
                   "  pm.expect(message).to.include('(id ' + pm.collectionVariables.get('itemId') + ')');",
                   "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - duplicate hidden by an invisible character -> 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "description": "A soft hyphen (U+00AD) is invisible, so \"name\" + U+00AD is the same name.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{dupName2}}\",\n  \"category\": \"Lighting\",\n  \"quantity\": 1,\n  \"price\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('dupName2', (pm.collectionVariables.get('itemName') || '') + '\\u00ad');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code is DUPLICATE_ITEM', () => pm.expect(pm.response.json().error.code).to.equal('DUPLICATE_ITEM'));"
                 ]
               }
             }
@@ -1503,6 +1566,54 @@
                   "pm.test('error.details mention: body', () => {",
                   "  const fields = pm.response.json().error.details.map((d) => d.field);",
                   "  [\"body\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - invisible / symbol-only text, tab in supplier -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "description": "name is only soft hyphens (invisible), category has no letters or numbers, supplier is a tab character.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"\\u00ad\\u00ad\", \"category\": \"--\", \"quantity\": 1, \"price\": 1, \"supplier\": \"\\t\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: name, category, supplier', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"name\",\"category\",\"supplier\"].forEach((f) => pm.expect(fields).to.include(f));",
                   "});"
                 ]
               }
