@@ -1,0 +1,691 @@
+newman
+
+Inventory Management API (Assignment 12)
+
+❏ Quick demo (send any request on its own)
+↳ Get all items
+  GET http://localhost:5012/api/inventory [200 OK, 1.88kB, 10ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns a list
+
+↳ Filter by category
+  GET http://localhost:5012/api/inventory?category=Electronics [200 OK, 974B, 2ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every item is in Electronics
+
+↳ Filter by quantity range (minQty / maxQty)
+  GET http://localhost:5012/api/inventory?minQty=10&maxQty=50 [200 OK, 789B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every quantity is between 10 and 50
+
+↳ Filter by exact quantity
+  GET http://localhost:5012/api/inventory?quantity=8 [200 OK, 586B, 2ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every quantity is 8
+
+↳ Filter out-of-stock items
+  GET http://localhost:5012/api/inventory?inStock=false [200 OK, 591B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every item has quantity 0
+
+↳ Search by name
+  GET http://localhost:5012/api/inventory?name=mouse [200 OK, 590B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every name contains "mouse"
+
+↳ Search endpoint
+  GET http://localhost:5012/api/inventory/search?name=desk [200 OK, 608B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every name contains "desk"
+
+↳ Filter + search combined
+  GET http://localhost:5012/api/inventory?category=Electronics&minQty=10&name=mouse [200 OK, 627B, 2ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every item matches all three filters
+
+↳ Sort by price (desc) + paginate
+  GET http://localhost:5012/api/inventory?sortBy=price&order=desc&page=1&limit=3 [200 OK, 1.06kB, 2ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  At most 3 items, most expensive first
+  ✓  Pagination info is returned
+
+↳ Get one item
+  GET http://localhost:5012/api/inventory/1 [200 OK, 475B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns item 1
+
+↳ Add an item (POST)
+  POST http://localhost:5012/api/inventory [201 Created, 555B, 5ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 201
+  ✓  Returns the new item with an id
+
+↳ Replace the demo item (PUT)
+  GET http://localhost:5012/api/inventory/9 [200 OK, 484B, 0µs]
+  PUT http://localhost:5012/api/inventory/9 [200 OK, 509B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  All fields replaced
+
+↳ Update some fields (PATCH)
+  GET http://localhost:5012/api/inventory/9 [200 OK, 470B, 0µs]
+  PATCH http://localhost:5012/api/inventory/9 [200 OK, 508B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Price updated
+
+↳ Adjust stock (sell 3)
+  GET http://localhost:5012/api/inventory/9 [200 OK, 470B, 1ms]
+  PATCH http://localhost:5012/api/inventory/9/stock [200 OK, 514B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Stock decreased by 3
+
+↳ Delete the demo item
+  GET http://localhost:5012/api/inventory/9 [200 OK, 470B, 0µs]
+  DELETE http://localhost:5012/api/inventory/9 [200 OK, 508B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns the deleted item
+
+↳ Validation error example (400)
+  POST http://localhost:5012/api/inventory [400 Bad Request, 565B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: name, quantity, price
+
+↳ Not found example (404)
+  GET http://localhost:5012/api/inventory/999999 [404 Not Found, 385B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 404
+  ✓  Error code is ITEM_NOT_FOUND
+
+❏ 0. Health & Info
+↳ API info
+  GET http://localhost:5012/ [200 OK, 1.32kB, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Lists endpoints and query parameters
+
+↳ Health check
+  GET http://localhost:5012/api/health [200 OK, 410B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Status is ok and item count is reported
+
+❏ 1. Read (fetch all & single)
+↳ Get all items
+  GET http://localhost:5012/api/inventory [200 OK, 1.88kB, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  data is an array and count matches
+  ✓  No filters applied, default sort
+  ✓  Items have the expected shape
+
+↳ Get single item by id
+  GET http://localhost:5012/api/inventory/1 [200 OK, 475B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns the requested item
+
+❏ 2. Create
+↳ Create item A
+  POST http://localhost:5012/api/inventory [201 Created, 577B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 201
+  ✓  Returns the created item
+  ✓  Location header points to the new item
+
+↳ Create item B (out of stock)
+  POST http://localhost:5012/api/inventory [201 Created, 570B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 201
+  ✓  Blank supplier is stored as null
+
+↳ Create item C (spaces tidied, read-only id ignored)
+  POST http://localhost:5012/api/inventory [201 Created, 571B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 201
+  ✓  Spaces are trimmed and collapsed
+  ✓  Sent id is ignored; server assigns a new one
+
+↳ Create - duplicate name (case-insensitive) -> 409
+  POST http://localhost:5012/api/inventory [409 Conflict, 502B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 409
+  ✓  Error code is DUPLICATE_ITEM
+  ✓  Message names the existing item and its id
+
+↳ Create - duplicate hidden by an invisible character -> 409
+  POST http://localhost:5012/api/inventory [409 Conflict, 502B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 409
+  ✓  Error code is DUPLICATE_ITEM
+
+↳ Create - missing required fields -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 592B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: name, category, quantity, price
+
+↳ Create - invalid field types/values -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 624B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: name, category, quantity, price
+
+↳ Create - decimal quantity & 3-decimal price -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 524B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: quantity, price
+
+↳ Create - unknown field -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 504B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: colour
+
+↳ Create - malformed JSON -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 411B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is INVALID_JSON
+
+↳ Create - array body -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 491B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: body
+
+↳ Create - null body -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 491B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: body
+
+↳ Create - invisible / symbol-only text, tab in supplier -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 629B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: name, category, supplier
+
+↳ Create - line break in name -> 400
+  POST http://localhost:5012/api/inventory [400 Bad Request, 485B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: name
+
+↳ Create - non-JSON Content-Type -> 415
+  POST http://localhost:5012/api/inventory [415 Unsupported Media Type, 414B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 415
+  ✓  Error code is UNSUPPORTED_MEDIA_TYPE
+
+❏ 3. Update (PUT / PATCH / stock)
+↳ Replace item A (PUT)
+  PUT http://localhost:5012/api/inventory/10 [200 OK, 541B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  All fields replaced; omitted supplier reset to null
+  ✓  createdAt is preserved
+
+↳ PUT - missing fields -> 400 (hint: use PATCH)
+  PUT http://localhost:5012/api/inventory/10 [400 Bad Request, 717B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: category, quantity, price, body
+  ✓  Suggests PATCH for partial updates
+
+↳ PUT - non-existent id -> 404
+  PUT http://localhost:5012/api/inventory/999999 [404 Not Found, 385B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 404
+  ✓  Error code is ITEM_NOT_FOUND
+
+↳ Partial update item A (PATCH)
+  PATCH http://localhost:5012/api/inventory/10 [200 OK, 543B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Only the sent fields changed
+
+↳ PATCH - empty body -> 400
+  PATCH http://localhost:5012/api/inventory/10 [400 Bad Request, 498B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: body
+
+↳ PATCH - only read-only fields -> 400 (nothing to update)
+  PATCH http://localhost:5012/api/inventory/10 [400 Bad Request, 498B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: body
+
+↳ PATCH - rename to an existing name -> 409
+  PATCH http://localhost:5012/api/inventory/12 [409 Conflict, 503B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 409
+  ✓  Error code is DUPLICATE_ITEM
+
+↳ PATCH - invalid id -> 400
+  PATCH http://localhost:5012/api/inventory/abc [400 Bad Request, 492B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is INVALID_ID
+
+↳ Stock - restock +10
+  PATCH http://localhost:5012/api/inventory/10/stock [200 OK, 550B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Quantity increased 30 -> 40
+
+↳ Stock - sell -5
+  PATCH http://localhost:5012/api/inventory/10/stock [200 OK, 549B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Quantity decreased 40 -> 35
+
+↳ Stock - sell more than available -> 409
+  PATCH http://localhost:5012/api/inventory/10/stock [409 Conflict, 542B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 409
+  ✓  Error code is INSUFFICIENT_STOCK
+  ✓  Details give the allowed minimum
+
+↳ Stock - remove from out-of-stock item B -> 409
+  PATCH http://localhost:5012/api/inventory/11/stock [409 Conflict, 551B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 409
+  ✓  Error code is INSUFFICIENT_STOCK
+  ✓  Details say the item is out of stock
+
+↳ Stock - invalid adjustment -> 400
+  PATCH http://localhost:5012/api/inventory/10/stock [400 Bad Request, 458B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: adjustment
+
+↳ Get item A after updates (failed requests changed nothing)
+  GET http://localhost:5012/api/inventory/10 [200 OK, 504B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  State reflects only the successful updates
+
+❏ 4. Query (filter / search / sort / paginate)
+↳ Filter by category (case-insensitive)
+  GET http://localhost:5012/api/inventory?category=qa-lighting-1793117525511 [200 OK, 1.06kB, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns exactly items A, B and C
+  ✓  Every item is in the category
+  ✓  Applied filter is echoed back
+  ✓  count and total are 3
+
+↳ Filter by category + minQty
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511&minQty=5 [200 OK, 861B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns A (35) and C (7) only
+  ✓  minQty echoed as a number
+
+↳ Filter by category + maxQty
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511&maxQty=10 [200 OK, 855B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns B (0) and C (7) only
+
+↳ Filter by exact quantity
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511&quantity=0 [200 OK, 649B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns B only
+
+↳ Filter by quantity range (all items)
+  GET http://localhost:5012/api/inventory?minQty=5&maxQty=50 [200 OK, 1.57kB, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every item is within 5..50
+  ✓  Filters echoed
+
+↳ Filter out-of-stock items
+  GET http://localhost:5012/api/inventory?inStock=false [200 OK, 797B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every item has quantity 0
+  ✓  Includes item B
+  ✓  inStock echoed as boolean
+
+↳ Search by name (list endpoint, ?name=)
+  GET http://localhost:5012/api/inventory?name=lamp [200 OK, 824B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every name contains "lamp" (case-insensitive)
+  ✓  Finds items A and B
+  ✓  name filter echoed
+
+↳ Search alias (list endpoint, ?search=)
+  GET http://localhost:5012/api/inventory?search=LAMP [200 OK, 826B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Every name contains "lamp" (case-insensitive)
+  ✓  Finds items A and B
+
+↳ Search endpoint by name
+  GET http://localhost:5012/api/inventory/search?name=1793117525511 [200 OK, 1.07kB, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Finds A, B and C
+  ✓  Message mentions the search term
+
+↳ Search endpoint with ?search= alias
+  GET http://localhost:5012/api/inventory/search?search=1793117525511&category=QA-Lighting-1793117525511 [200 OK, 1.11kB, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Finds A, B and C
+
+↳ Search endpoint + filter (inStock=true)
+  GET http://localhost:5012/api/inventory/search?name=1793117525511&inStock=true [200 OK, 876B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Finds only in-stock A and C
+
+↳ Search - no matches -> empty list
+  GET http://localhost:5012/api/inventory/search?name=zzz-no-such-item [200 OK, 447B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Empty data with count 0
+
+↳ Sort by quantity desc
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511&sortBy=quantity&order=desc [200 OK, 1.06kB, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Order is A (35), C (7), B (0)
+  ✓  Sort echoed
+
+↳ Sort all items by price desc
+  GET http://localhost:5012/api/inventory?sortBy=price&order=desc [200 OK, 2.52kB, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Prices are in descending order
+
+↳ Pagination (page 2, limit 2)
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511&sortBy=quantity&page=2&limit=2 [200 OK, 758B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Page 2 holds the last item (A)
+  ✓  count/total/pagination are correct
+  ✓  Message describes the page
+
+↳ Pagination - page past the end
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511&page=5&limit=2 [200 OK, 554B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Empty page, total still 3
+  ✓  Message says the page is out of range
+
+↳ Blank params are ignored
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511&name=&minQty=&inStock= [200 OK, 1.06kB, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Only category is applied
+  ✓  All 3 test items returned
+
+↳ Query - non-numeric minQty -> 400
+  GET http://localhost:5012/api/inventory?minQty=abc [400 Bad Request, 479B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: minQty
+
+↳ Query - minQty greater than maxQty -> 400
+  GET http://localhost:5012/api/inventory?minQty=50&maxQty=5 [400 Bad Request, 464B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: minQty
+
+↳ Query - unknown parameter -> 400
+  GET http://localhost:5012/api/inventory?colour=red [400 Bad Request, 559B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: colour
+
+↳ Query - repeated parameter -> 400
+  GET http://localhost:5012/api/inventory?category=Electronics&category=Furniture [400 Bad Request, 464B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: category
+
+↳ Query - invalid sortBy / order / limit -> 400
+  GET http://localhost:5012/api/inventory?sortBy=colour&order=up&limit=500 [400 Bad Request, 648B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: sortBy, order, limit
+
+↳ Query - name and search together -> 400
+  GET http://localhost:5012/api/inventory?name=lamp&search=desk [400 Bad Request, 478B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: search
+
+↳ Search - missing name -> 400
+  GET http://localhost:5012/api/inventory/search [400 Bad Request, 477B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: name
+
+↳ Search - empty name -> 400
+  GET http://localhost:5012/api/inventory/search?name= [400 Bad Request, 446B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is VALIDATION_ERROR
+  ✓  error.details mention: name
+
+❏ 5. Delete
+↳ Delete item A
+  DELETE http://localhost:5012/api/inventory/10 [200 OK, 543B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  Returns the deleted item
+
+↳ Get deleted item -> 404
+  GET http://localhost:5012/api/inventory/10 [404 Not Found, 381B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 404
+  ✓  Error code is ITEM_NOT_FOUND
+
+↳ Delete same item again -> 404
+  DELETE http://localhost:5012/api/inventory/10 [404 Not Found, 381B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 404
+  ✓  Error code is ITEM_NOT_FOUND
+
+↳ Delete - invalid id -> 400
+  DELETE http://localhost:5012/api/inventory/-1 [400 Bad Request, 491B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is INVALID_ID
+
+↳ Delete item B (cleanup)
+  DELETE http://localhost:5012/api/inventory/11 [200 OK, 536B, 0µs]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+
+↳ Delete item C (cleanup)
+  DELETE http://localhost:5012/api/inventory/12 [200 OK, 537B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+
+↳ Category is empty after cleanup
+  GET http://localhost:5012/api/inventory?category=QA-Lighting-1793117525511 [200 OK, 430B, 1ms]
+  ✓  Response is JSON
+  ✓  Success response has success: true
+  ✓  Status code is 200
+  ✓  No items left in the test category
+
+❏ 6. Errors (404 / 405 / bad ids)
+↳ Unknown route -> 404
+  GET http://localhost:5012/api/does-not-exist [404 Not Found, 397B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 404
+  ✓  Error code is ROUTE_NOT_FOUND
+
+↳ Non-existent item -> 404
+  GET http://localhost:5012/api/inventory/999999 [404 Not Found, 385B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 404
+  ✓  Error code is ITEM_NOT_FOUND
+
+↳ Invalid id format -> 400
+  GET http://localhost:5012/api/inventory/abc [400 Bad Request, 492B, 1ms]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 400
+  ✓  Error code is INVALID_ID
+
+↳ Unsupported method -> 405
+  DELETE http://localhost:5012/api/inventory [405 Method Not Allowed, 461B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 405
+  ✓  Error code is METHOD_NOT_ALLOWED
+  ✓  Allow header lists GET, POST
+
+↳ Unsupported method on /api/health -> 405
+  POST http://localhost:5012/api/health [405 Method Not Allowed, 444B, 0µs]
+  ✓  Response is JSON
+  ✓  Error response has the standard shape
+  ✓  Status code is 405
+  ✓  Error code is METHOD_NOT_ALLOWED
+  ✓  Allow header is GET
+
+┌─────────────────────────┬─────────────────┬─────────────────┐
+│                         │        executed │          failed │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│              iterations │               1 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│                requests │              91 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│            test-scripts │             174 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│      prerequest-scripts │              11 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│              assertions │             395 │               0 │
+├─────────────────────────┴─────────────────┴─────────────────┤
+│ total run duration: 968ms                                   │
+├─────────────────────────────────────────────────────────────┤
+│ total data received: 34.36kB (approx)                       │
+├─────────────────────────────────────────────────────────────┤
+│ average response time: 1ms [min: 1ms, max: 10ms, s.d.: 1ms] │
+└─────────────────────────────────────────────────────────────┘
