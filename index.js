@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 
 const inventoryModel = require('./model/inventoryData');
+const inventoryRoutes = require('./routes/inventoryRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const PORT = Number(process.env.PORT) || 5012;
@@ -45,7 +46,16 @@ app.get('/', (req, res) => {
     message: 'Welcome to the Inventory Management API',
     data: {
       version: '1.0.0',
-      health: '/api/health',
+      endpoints: {
+        health: 'GET /api/health',
+        listItems: 'GET /api/inventory',
+        getItem: 'GET /api/inventory/:id',
+        createItem: 'POST /api/inventory',
+        replaceItem: 'PUT /api/inventory/:id',
+        updateItem: 'PATCH /api/inventory/:id',
+        adjustStock: 'PATCH /api/inventory/:id/stock',
+        deleteItem: 'DELETE /api/inventory/:id',
+      },
     },
   });
 });
@@ -62,6 +72,8 @@ app.get('/api/health', (req, res) => {
     },
   });
 });
+
+app.use('/api/inventory', inventoryRoutes);
 
 // ---------- Error handling (registered after all routes) ----------
 app.use(notFound);
