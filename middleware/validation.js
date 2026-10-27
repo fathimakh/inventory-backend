@@ -204,9 +204,11 @@ const MAX_PAGE_LIMIT = 100;
 // name and search are aliases for the same partial, case-insensitive name search
 const QUERY_PARAMS = ['name', 'search', 'category', 'quantity', 'minQty', 'maxQty', 'inStock', 'sortBy', 'order', 'page', 'limit'];
 
+// Text filters are tidied exactly like text in request bodies, so ?name=wireless%20%20mouse
+// finds "Wireless Mouse"
 const textParam = (raw, param, max) => {
-  const value = raw.trim();
-  if (value.length > max) return { error: `${param} must be at most ${max} characters` };
+  const value = cleanText(raw);
+  if ([...value].length > max) return { error: `${param} must be at most ${max} characters` };
   return { value };
 };
 
@@ -262,7 +264,7 @@ const buildQueryValidator = ({ requireSearchTerm = false } = {}) => (req, res, n
       details.push({ field: param, message: `Unknown query parameter "${param}". Allowed: ${QUERY_PARAMS.join(', ')}` });
     } else if (Array.isArray(raw)) {
       details.push({ field: param, message: `${param} can only be provided once` });
-    } else if (raw.trim() !== '') {
+    } else if (!isBlank(raw)) {
       const { value, error } = QUERY_PARSERS[param](raw);
       if (error) details.push({ field: param, message: error });
       else filters[param] = value;

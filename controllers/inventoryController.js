@@ -43,13 +43,14 @@ const matchesFilters = (item, filters) => {
   return true;
 };
 
+// Ties are broken by id in the same direction, so order=desc reverses the list completely
 const sortItems = (items, sortBy, order) => {
   const direction = order === 'desc' ? -1 : 1;
   return [...items].sort((a, b) => {
     const x = a[sortBy];
     const y = b[sortBy];
     const result = typeof x === 'string' ? x.localeCompare(y, undefined, { sensitivity: 'base' }) : x - y;
-    return result * direction;
+    return (result || a.id - b.id) * direction;
   });
 };
 
