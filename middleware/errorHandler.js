@@ -81,6 +81,24 @@ const errorHandler = (err, req, res, next) => {
     statusCode = 413;
     code = 'PAYLOAD_TOO_LARGE';
     message = `Request body is too large. Maximum size is ${err.limit} bytes.`;
+  } else if (err.type === 'charset.unsupported') {
+    statusCode = 415;
+    code = 'UNSUPPORTED_MEDIA_TYPE';
+    message = `Unsupported charset "${err.charset}". Send the request body as UTF-8 JSON.`;
+  } else if (err.type === 'encoding.unsupported') {
+    statusCode = 415;
+    code = 'UNSUPPORTED_MEDIA_TYPE';
+    message = `Unsupported Content-Encoding "${err.encoding}". Send the body uncompressed or as gzip, deflate or br.`;
+  } else if (typeof err.code === 'string' && err.code.startsWith('Z_')) {
+    // zlib could not decompress a body sent with Content-Encoding: gzip / deflate / br
+    statusCode = 400;
+    code = 'BAD_REQUEST';
+    message = 'Request body could not be decompressed. Check the Content-Encoding header.';
+  } else if (err instanceof URIError) {
+    // Thrown by the router when a URL contains an invalid %-encoding, e.g. /api/inventory/%ZZ
+    statusCode = 400;
+    code = 'BAD_REQUEST';
+    message = 'Malformed URL: it contains an invalid %-encoded character.';
   } else if (Number.isInteger(clientStatus) && clientStatus >= 400 && clientStatus < 500) {
     // Any other client error raised by Express / body-parser
     statusCode = clientStatus;
