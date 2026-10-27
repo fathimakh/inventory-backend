@@ -5,6 +5,7 @@ const express = require('express');
 
 const {
   getAllItems,
+  searchItems,
   getItemById,
   createItem,
   replaceItem,
@@ -17,6 +18,8 @@ const {
   validateItem,
   validateItemUpdate,
   validateStockAdjustment,
+  validateListQuery,
+  validateSearchQuery,
 } = require('../middleware/validation');
 const { methodNotAllowed } = require('../middleware/errorHandler');
 
@@ -25,9 +28,15 @@ const router = express.Router();
 // /api/inventory
 router
   .route('/')
-  .get(getAllItems) // fetch all items
+  .get(validateListQuery, getAllItems) // fetch all items (filter / search / sort / paginate)
   .post(validateItem, createItem) // add an item
   .all(methodNotAllowed(['GET', 'POST']));
+
+// /api/inventory/search  (declared before /:id)
+router
+  .route('/search')
+  .get(validateSearchQuery, searchItems) // search items by name
+  .all(methodNotAllowed(['GET']));
 
 // /api/inventory/:id
 router

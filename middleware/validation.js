@@ -174,9 +174,110 @@ const validateStockAdjustment = (req, res, next) => {
   next();
 };
 
+// ---------- Query string validation ----------
+
+const SORT_FIELDS = ['id', 'name', 'category', 'quantity', 'price', 'createdAt', 'updatedAt'];
+const MAX_PAGE_LIMIT = 100;
+
+const FILTER_PARAMS = ['category', 'quantity', 'minQty', 'maxQty', 'inStock'];
+const LIST_OPTION_PARAMS = ['sortBy', 'order', 'page', 'limit'];
+
+const textParam = (raw, param, max) => {
+  const value = raw.trim();
+  if (value.length === 0) return { error: `${param} cannot be empty` };
+  if (value.length > max) return { error: `${param} must be at most ${max} characters` };
+  return { value };
+};
+
+const wholeNumberParam = (raw, param, min, max = Infinity) => {
+  const text = raw.trim();
+  const value = Number(text);
+  if (!/^\d+$/.test(text) || !Number.isSafeInteger(value) || value < min || value > max) {
+    const range = max === Infinity ? `of at least ${min}` : `between ${min} and ${max}`;
+    return { error: `${param} must be a whole number ${range}` };
+  }
+  return { value };
+};
+
+const choiceParam = (raw, param, choices) => {
+  const value = choices.find((choice) => choice.toLowerCase() === raw.trim().toLowerCase());
+  return value === undefined ? { error: `${param} must be one of: ${choices.join(', ')}` } : { value };
+};
+
+// One parser per supported query parameter: returns { value } or { error }
+const QUERY_PARSERS = {
+  category: (raw) => textParam(raw, 'category', LIMITS.CATEGORY_MAX),
+  search: (raw) => textParam(raw, 'search', LIMITS.NAME_MAX),
+  name: (raw) => textParam(raw, 'name', LIMITS.NAME_MAX),
+  quantity: (raw) => wholeNumberParam(raw, 'quantity', 0, LIMITS.MAX_QUANTITY),
+  minQty: (raw) => wholeNumberParam(raw, 'minQty', 0, LIMITS.MAX_QUANTITY),
+  maxQty: (raw) => wholeNumberParam(raw, 'maxQty', 0, LIMITS.MAX_QUANTITY),
+  inStock: (raw) => {
+    const { value, error } = choiceParam(raw, 'inStock', ['true', 'false']);
+    return error ? { error } : { value: value === 'true' };
+  },
+  sortBy: (raw) => choiceParam(raw, 'sortBy', SORT_FIELDS),
+  order: (raw) => choiceParam(raw, 'order', ['asc', 'desc']),
+  page: (raw) => wholeNumberParam(raw, 'page', 1),
+  limit: (raw) => wholeNumberParam(raw, 'limit', 1, MAX_PAGE_LIMIT),
+};
+
+/**
+ * Builds a query-string validator. Valid, converted values (numbers,
+ * booleans, trimmed strings) are stored on req.filters for the controller,
+ * because req.query is read-only in Express 5.
+ */
+const buildQueryValidator = ({ allowed, required = [] }) => (req, res, next) => {
+  const query = req.query;
+  const details = [];
+  const filters = {};
+
+  Object.keys(query).forEach((param) => {
+    const raw = query[param];
+
+    if (!allowed.includes(param)) {
+      details.push({ field: param, message: `Unknown query parameter "${param}". Allowed: ${allowed.join(', ')}` });
+    } else if (Array.isArray(raw)) {
+      details.push({ field: param, message: `${param} can only be provided once` });
+    } else {
+      const { value, error } = QUERY_PARSERS[param](raw);
+      if (error) details.push({ field: param, message: error });
+      else filters[param] = value;
+    }
+  });
+
+  required.forEach((param) => {
+    if (query[param] === undefined) details.push({ field: param, message: `${param} query parameter is required` });
+  });
+
+  if (filters.minQty !== undefined && filters.maxQty !== undefined && filters.minQty > filters.maxQty) {
+    details.push({ field: 'minQty', message: 'minQty cannot be greater than maxQty' });
+  }
+
+  if (details.length > 0) {
+    return next(new AppError(400, 'Invalid query parameters', 'VALIDATION_ERROR', details));
+  }
+
+  req.filters = filters;
+  next();
+};
+
+/** GET /api/inventory?category=&search=&quantity=&minQty=&maxQty=&inStock=&sortBy=&order=&page=&limit= */
+const validateListQuery = buildQueryValidator({
+  allowed: ['search', ...FILTER_PARAMS, ...LIST_OPTION_PARAMS],
+});
+
+/** GET /api/inventory/search?name=  (plus the same optional filters) */
+const validateSearchQuery = buildQueryValidator({
+  allowed: ['name', ...FILTER_PARAMS, ...LIST_OPTION_PARAMS],
+  required: ['name'],
+});
+
 module.exports = {
   validateId,
   validateItem,
   validateItemUpdate,
   validateStockAdjustment,
+  validateListQuery,
+  validateSearchQuery,
 };

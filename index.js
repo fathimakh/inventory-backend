@@ -48,7 +48,8 @@ app.get('/', (req, res) => {
       version: '1.0.0',
       endpoints: {
         health: 'GET /api/health',
-        listItems: 'GET /api/inventory',
+        listItems: 'GET /api/inventory?category=&search=&quantity=&minQty=&maxQty=&inStock=&sortBy=&order=&page=&limit=',
+        searchItems: 'GET /api/inventory/search?name=',
         getItem: 'GET /api/inventory/:id',
         createItem: 'POST /api/inventory',
         replaceItem: 'PUT /api/inventory/:id',

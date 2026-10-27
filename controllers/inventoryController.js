@@ -20,15 +20,106 @@ const duplicateName = (name) =>
     { field: 'name', message: 'name must be unique (case-insensitive)' },
   ]);
 
+// ---------- Query helpers (filter -> sort -> paginate) ----------
+
+const FILTER_KEYS = ['category', 'search', 'name', 'quantity', 'minQty', 'maxQty', 'inStock'];
+const DEFAULT_PAGE_LIMIT = 10;
+
+// true when the item passes every filter that was supplied
+const matchesFilters = (item, filters) => {
+  const { category, quantity, minQty, maxQty, inStock } = filters;
+  const searchTerm = filters.search ?? filters.name; // partial, case-insensitive name match
+
+  if (category !== undefined && item.category.toLowerCase() !== category.toLowerCase()) return false;
+  if (searchTerm !== undefined && !item.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+  if (quantity !== undefined && item.quantity !== quantity) return false;
+  if (minQty !== undefined && item.quantity < minQty) return false;
+  if (maxQty !== undefined && item.quantity > maxQty) return false;
+  if (inStock !== undefined && item.quantity > 0 !== inStock) return false;
+  return true;
+};
+
+const sortItems = (items, sortBy, order) => {
+  const direction = order === 'desc' ? -1 : 1;
+  return [...items].sort((a, b) => {
+    const x = a[sortBy];
+    const y = b[sortBy];
+    const result = typeof x === 'string' ? x.localeCompare(y, undefined, { sensitivity: 'base' }) : x - y;
+    return result * direction;
+  });
+};
+
+/**
+ * Runs the validated query (req.filters) against the array.
+ * Pagination is only applied when `page` or `limit` is supplied.
+ */
+const queryInventory = (filters) => {
+  const { sortBy = 'id', order = 'asc', page, limit } = filters;
+
+  const appliedFilters = {};
+  FILTER_KEYS.forEach((key) => {
+    if (filters[key] !== undefined) appliedFilters[key] = filters[key];
+  });
+
+  const matched = sortItems(
+    Inventory.findAll().filter((item) => matchesFilters(item, filters)),
+    sortBy,
+    order
+  );
+
+  const result = { items: matched, total: matched.length, filters: appliedFilters, sort: { sortBy, order } };
+
+  if (page !== undefined || limit !== undefined) {
+    const currentPage = page ?? 1;
+    const perPage = limit ?? DEFAULT_PAGE_LIMIT;
+    const totalPages = Math.max(1, Math.ceil(matched.length / perPage));
+    const start = (currentPage - 1) * perPage;
+
+    result.items = matched.slice(start, start + perPage);
+    result.pagination = {
+      page: currentPage,
+      limit: perPage,
+      totalPages,
+      hasNextPage: currentPage < totalPages,
+      hasPrevPage: currentPage > 1,
+    };
+  }
+  return result;
+};
+
+// List responses: { success, message, count, total, filters, sort, pagination?, data }
+const sendList = (res, result, message) => {
+  const { items, total, filters, sort, pagination } = result;
+  sendSuccess(res, 200, {
+    message,
+    count: items.length,
+    total,
+    filters,
+    sort,
+    ...(pagination && { pagination }),
+    data: items,
+  });
+};
+
 // ---------- Controllers ----------
 
 /**
  * GET /api/inventory
- * Fetch all items.
+ * Fetch all items, optionally filtered by category / quantity, searched by
+ * name, sorted and paginated through query params.
  */
 const getAllItems = (req, res) => {
-  const items = Inventory.findAll();
-  sendSuccess(res, 200, { count: items.length, data: items });
+  const result = queryInventory(req.filters);
+  sendList(res, result, `${result.total} item(s) found`);
+};
+
+/**
+ * GET /api/inventory/search?name=
+ * Search items by (partial, case-insensitive) name.
+ */
+const searchItems = (req, res) => {
+  const result = queryInventory(req.filters);
+  sendList(res, result, `${result.total} item(s) found matching "${req.filters.name}"`);
 };
 
 /**
@@ -139,6 +230,7 @@ const deleteItem = (req, res, next) => {
 
 module.exports = {
   getAllItems,
+  searchItems,
   getItemById,
   createItem,
   replaceItem,
