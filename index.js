@@ -4,6 +4,7 @@ require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 
+const inventoryModel = require('./model/inventoryData');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const PORT = Number(process.env.PORT) || 5012;
@@ -14,6 +15,11 @@ const corsOrigin = (process.env.CORS_ORIGIN || '*').trim();
 const corsOptions = {
   origin: corsOrigin === '*' ? '*' : corsOrigin.split(',').map((origin) => origin.trim()),
 };
+
+// Load sample items into the in-memory array unless SEED_DATA=false
+if (process.env.SEED_DATA !== 'false') {
+  inventoryModel.seed();
+}
 
 const app = express();
 
@@ -51,6 +57,7 @@ app.get('/api/health', (req, res) => {
       status: 'ok',
       environment: NODE_ENV,
       uptimeSeconds: Math.round(process.uptime()),
+      itemsInMemory: inventoryModel.count(),
       timestamp: new Date().toISOString(),
     },
   });
