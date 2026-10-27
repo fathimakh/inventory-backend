@@ -4,6 +4,8 @@ require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 
+const { notFound, errorHandler } = require('./middleware/errorHandler');
+
 const PORT = Number(process.env.PORT) || 5012;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
@@ -53,6 +55,10 @@ app.get('/api/health', (req, res) => {
     },
   });
 });
+
+// ---------- Error handling (registered after all routes) ----------
+app.use(notFound);
+app.use(errorHandler);
 
 // ---------- Start the server ----------
 if (require.main === module) {
