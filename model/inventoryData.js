@@ -48,7 +48,8 @@ const SAMPLE_ITEMS = [
 // Callers always receive copies, so nobody can change the array by accident
 const clone = (item) => ({ ...item });
 
-const normalize = (text) => String(text).trim().toLowerCase();
+// Used for the unique-name check: "  WIRELESS   mouse " matches "Wireless Mouse"
+const normalize = (text) => String(text).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 
 const findIndexById = (id) => inventory.findIndex((item) => item.id === id);
 
@@ -71,8 +72,8 @@ const findById = (id) => {
 };
 
 /**
- * Case-insensitive lookup by exact name. `excludeId` skips one item, which
- * lets an item keep its own name when it is updated.
+ * Case- and whitespace-insensitive lookup by exact name. `excludeId` skips
+ * one item, which lets an item keep its own name when it is updated.
  */
 const findByName = (name, excludeId = null) => {
   const target = normalize(name);

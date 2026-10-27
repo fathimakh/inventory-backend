@@ -15,8 +15,9 @@ const sendSuccess = (res, statusCode, body) => res.status(statusCode).json({ suc
 
 const itemNotFound = (id) => new AppError(404, `Item with id ${id} not found`, 'ITEM_NOT_FOUND');
 
-const duplicateName = (name) =>
-  new AppError(409, `An item named "${name}" already exists`, 'DUPLICATE_ITEM', [
+// `existing` is the stored item whose name clashes with the request
+const duplicateName = (existing) =>
+  new AppError(409, `An item named "${existing.name}" already exists (id ${existing.id})`, 'DUPLICATE_ITEM', [
     { field: 'name', message: 'name must be unique (case-insensitive)' },
   ]);
 
@@ -152,7 +153,8 @@ const getItemById = (req, res, next) => {
  * Add a new item. Item names must be unique.
  */
 const createItem = (req, res, next) => {
-  if (Inventory.findByName(req.body.name)) return next(duplicateName(req.body.name));
+  const existing = Inventory.findByName(req.body.name);
+  if (existing) return next(duplicateName(existing));
 
   const item = Inventory.create(req.body);
   res.location(`${req.baseUrl}/${item.id}`);
@@ -166,7 +168,8 @@ const createItem = (req, res, next) => {
 const replaceItem = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Inventory.findById(id)) return next(itemNotFound(id));
-  if (Inventory.findByName(req.body.name, id)) return next(duplicateName(req.body.name));
+  const existing = Inventory.findByName(req.body.name, id);
+  if (existing) return next(duplicateName(existing));
 
   const item = Inventory.replace(id, req.body);
   sendSuccess(res, 200, { message: 'Item replaced successfully', data: item });
@@ -179,9 +182,8 @@ const replaceItem = (req, res, next) => {
 const updateItem = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Inventory.findById(id)) return next(itemNotFound(id));
-  if (req.body.name !== undefined && Inventory.findByName(req.body.name, id)) {
-    return next(duplicateName(req.body.name));
-  }
+  const existing = req.body.name !== undefined && Inventory.findByName(req.body.name, id);
+  if (existing) return next(duplicateName(existing));
 
   const item = Inventory.update(id, req.body);
   sendSuccess(res, 200, { message: 'Item updated successfully', data: item });
@@ -199,24 +201,31 @@ const adjustStock = (req, res, next) => {
 
   const { adjustment } = req.body;
   const newQuantity = item.quantity + adjustment;
+  const max = Inventory.LIMITS.MAX_QUANTITY;
 
   if (newQuantity < 0) {
+    const hint = item.quantity === 0
+      ? 'item is out of stock, so no units can be removed'
+      : `minimum allowed adjustment is -${item.quantity}`;
     return next(
       new AppError(
         409,
         `Insufficient stock: cannot remove ${-adjustment} unit(s) of "${item.name}", only ${item.quantity} in stock`,
         'INSUFFICIENT_STOCK',
-        [{ field: 'adjustment', message: `minimum allowed adjustment is -${item.quantity}` }]
+        [{ field: 'adjustment', message: hint }]
       )
     );
   }
-  if (newQuantity > Inventory.LIMITS.MAX_QUANTITY) {
+  if (newQuantity > max) {
+    const hint = item.quantity === max
+      ? 'item is already at maximum stock, so no units can be added'
+      : `maximum allowed adjustment is ${max - item.quantity}`;
     return next(
       new AppError(
         409,
-        `Stock limit exceeded: "${item.name}" cannot hold more than ${Inventory.LIMITS.MAX_QUANTITY} units`,
+        `Stock limit exceeded: "${item.name}" cannot hold more than ${max} units`,
         'STOCK_LIMIT_EXCEEDED',
-        [{ field: 'adjustment', message: `maximum allowed adjustment is ${Inventory.LIMITS.MAX_QUANTITY - item.quantity}` }]
+        [{ field: 'adjustment', message: hint }]
       )
     );
   }
