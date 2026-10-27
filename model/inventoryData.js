@@ -48,8 +48,27 @@ const SAMPLE_ITEMS = [
 // Callers always receive copies, so nobody can change the array by accident
 const clone = (item) => ({ ...item });
 
+// Zero-width characters: Unicode format characters (zero-width spaces and joiners,
+// direction marks, soft hyphens, ...) and variation selectors
+const ZERO_WIDTH_CHARS = /[\p{Cf}\u034F\uFE00-\uFE0F]/gu;
+// Characters that display as an empty space but are not whitespace
+const BLANK_FILLERS = /[\u115F\u1160\u3164\uFFA0\u2800]/g;
+
+/**
+ * Tidies text the same way everywhere (request bodies, query filters and the
+ * unique-name check): removes zero-width characters, collapses runs of spaces
+ * and trims. "  Desk \u200B  Lamp " -> "Desk Lamp"
+ */
+const cleanText = (text) =>
+  String(text)
+    .replace(ZERO_WIDTH_CHARS, '')
+    .replace(BLANK_FILLERS, ' ')
+    .normalize('NFC')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 // Used for the unique-name check: "  WIRELESS   mouse " matches "Wireless Mouse"
-const normalize = (text) => String(text).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+const normalize = (text) => cleanText(text).toLowerCase();
 
 const findIndexById = (id) => inventory.findIndex((item) => item.id === id);
 
@@ -180,6 +199,7 @@ const seed = () => {
 
 module.exports = {
   LIMITS,
+  cleanText,
   findAll,
   findById,
   findByName,

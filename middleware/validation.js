@@ -14,7 +14,7 @@
 // }
 
 const { AppError } = require('./errorHandler');
-const { LIMITS } = require('../model/inventoryData');
+const { LIMITS, cleanText } = require('../model/inventoryData');
 
 const ITEM_FIELDS = ['name', 'category', 'quantity', 'price', 'supplier'];
 const REQUIRED_FIELDS = ['name', 'category', 'quantity', 'price'];
@@ -27,19 +27,19 @@ const validationError = (details) => new AppError(400, 'Validation failed', 'VAL
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F]/;
-const INVISIBLE_CHARS = /[\u200B-\u200D\u2060\uFEFF]/g;
+const LETTER_OR_NUMBER = /[\p{L}\p{N}]/u;
 
-/** Trims, removes zero-width characters and collapses runs of spaces: "  Desk   Lamp " -> "Desk Lamp" */
-const cleanText = (value) => value.normalize('NFC').replace(INVISIBLE_CHARS, '').replace(/\s+/g, ' ').trim();
-
+// cleanText (from the model) trims, collapses spaces and removes invisible characters
 const isBlank = (value) => typeof value === 'string' && cleanText(value) === '';
 
 const checkText = (value, field, min, max) => {
   if (typeof value !== 'string') return `${field} must be a string`;
   if (CONTROL_CHARS.test(value)) return `${field} cannot contain control characters such as tabs or line breaks`;
-  const length = [...cleanText(value)].length; // count characters, not UTF-16 code units
+  const text = cleanText(value);
+  const length = [...text].length; // count characters, not UTF-16 code units
   if (length === 0) return `${field} cannot be empty`;
   if (length < min || length > max) return `${field} must be between ${min} and ${max} characters`;
+  if (!LETTER_OR_NUMBER.test(text)) return `${field} must contain at least one letter or number`;
   return null;
 };
 
@@ -58,9 +58,11 @@ const FIELD_RULES = {
     if (!/^\d+(\.\d{1,2})?$/.test(String(value))) return 'price can have at most 2 decimal places';
     return null;
   },
-  // supplier is optional; null or "" clears it
-  supplier: (value) =>
-    value === null || isBlank(value) ? null : checkText(value, 'supplier', LIMITS.SUPPLIER_MIN, LIMITS.SUPPLIER_MAX),
+  // supplier is optional; null or "" clears it (control characters are still rejected)
+  supplier: (value) => {
+    if (value === null || (isBlank(value) && !CONTROL_CHARS.test(value))) return null;
+    return checkText(value, 'supplier', LIMITS.SUPPLIER_MIN, LIMITS.SUPPLIER_MAX);
+  },
 };
 
 /**
