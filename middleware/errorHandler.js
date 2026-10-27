@@ -20,12 +20,11 @@ class AppError extends Error {
   }
 }
 
-// Machine-readable codes for client errors raised by Express itself
+// Fallback codes for any other 4xx error raised by Express or body-parser
+// (e.g. 400 for a badly %-encoded URL, 415 for an unsupported JSON charset).
+// Errors created by this app are AppErrors and carry their own code.
 const DEFAULT_CODES = {
   400: 'BAD_REQUEST',
-  403: 'FORBIDDEN',
-  404: 'NOT_FOUND',
-  405: 'METHOD_NOT_ALLOWED',
   413: 'PAYLOAD_TOO_LARGE',
   415: 'UNSUPPORTED_MEDIA_TYPE',
 };
@@ -94,7 +93,8 @@ const errorHandler = (err, req, res, next) => {
 
   const error = { statusCode, code, message };
   if (details !== undefined) error.details = details;
-  if (statusCode >= 500 && process.env.NODE_ENV === 'development') error.stack = err.stack;
+  // app.get('env') is NODE_ENV, defaulting to 'development' (same default as index.js)
+  if (statusCode >= 500 && req.app.get('env') === 'development') error.stack = err.stack;
 
   res.status(statusCode).json({ success: false, error });
 };
