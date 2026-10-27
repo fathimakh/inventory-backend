@@ -26,7 +26,9 @@ const app = express();
 
 // ---------- Global middleware ----------
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '10kb' }));
+// strict: false lets bodies like "hello" or null reach the validator, which
+// answers every non-object body with the same clear 400 message
+app.use(express.json({ limit: '10kb', strict: false }));
 
 // Simple request logger (development only)
 if (NODE_ENV === 'development') {

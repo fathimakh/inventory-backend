@@ -26,9 +26,18 @@ const validationError = (details) => new AppError(400, 'Validation failed', 'VAL
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
+const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F]/;
+const INVISIBLE_CHARS = /[\u200B-\u200D\u2060\uFEFF]/g;
+
+/** Trims, removes zero-width characters and collapses runs of spaces: "  Desk   Lamp " -> "Desk Lamp" */
+const cleanText = (value) => value.normalize('NFC').replace(INVISIBLE_CHARS, '').replace(/\s+/g, ' ').trim();
+
+const isBlank = (value) => typeof value === 'string' && cleanText(value) === '';
+
 const checkText = (value, field, min, max) => {
   if (typeof value !== 'string') return `${field} must be a string`;
-  const length = value.trim().length;
+  if (CONTROL_CHARS.test(value)) return `${field} cannot contain control characters such as tabs or line breaks`;
+  const length = [...cleanText(value)].length; // count characters, not UTF-16 code units
   if (length === 0) return `${field} cannot be empty`;
   if (length < min || length > max) return `${field} must be between ${min} and ${max} characters`;
   return null;
@@ -49,9 +58,9 @@ const FIELD_RULES = {
     if (!/^\d+(\.\d{1,2})?$/.test(String(value))) return 'price can have at most 2 decimal places';
     return null;
   },
-  // supplier is optional; null clears it
+  // supplier is optional; null or "" clears it
   supplier: (value) =>
-    value === null ? null : checkText(value, 'supplier', LIMITS.SUPPLIER_MIN, LIMITS.SUPPLIER_MAX),
+    value === null || isBlank(value) ? null : checkText(value, 'supplier', LIMITS.SUPPLIER_MIN, LIMITS.SUPPLIER_MAX),
 };
 
 /**
@@ -67,18 +76,21 @@ const checkJsonBody = (req) => {
     return validationError([{ field: 'body', message: 'Request body is required and must be a JSON object' }]);
   }
   if (!isPlainObject(req.body)) {
-    return validationError([{ field: 'body', message: 'Request body must be a JSON object, not an array or a primitive' }]);
+    return validationError([{ field: 'body', message: 'Request body must be a JSON object, not an array, string, number or null' }]);
   }
   return null;
 };
 
-/** Reports read-only and unknown fields in the body. */
+/**
+ * Reports unknown fields in the body (catches typos like "quantiy").
+ * Read-only fields (id, createdAt, updatedAt) are ignored rather than
+ * rejected, so a body copied from a GET response can be sent back as is.
+ * They never reach the model: only allowed fields are passed on.
+ */
 const checkAllowedFields = (body, allowedFields) => {
   const details = [];
   Object.keys(body).forEach((key) => {
-    if (READ_ONLY_FIELDS.includes(key)) {
-      details.push({ field: key, message: `${key} is read-only and cannot be set` });
-    } else if (!allowedFields.includes(key)) {
+    if (!allowedFields.includes(key) && !READ_ONLY_FIELDS.includes(key)) {
       details.push({ field: key, message: `Unknown field "${key}". Allowed fields: ${allowedFields.join(', ')}` });
     }
   });
@@ -117,14 +129,24 @@ const buildItemValidator = ({ partial }) => (req, res, next) => {
     if (message) details.push({ field, message });
   });
 
+  // PUT is a full replacement; point clients that only send some fields to PATCH
+  const missingRequired = details.some((d) => d.message.endsWith(' is required'));
+  if (!partial && missingRequired && req.method === 'PUT') {
+    details.push({
+      field: 'body',
+      message: 'PUT replaces the whole item, so name, category, quantity and price are all required. Use PATCH /api/inventory/:id to update only some fields.',
+    });
+  }
+
   if (details.length > 0) return next(validationError(details));
 
-  // Pass on a clean body: only known fields, strings trimmed
+  // Pass on a clean body: only known fields, strings tidied, blank supplier -> null
   const clean = {};
   ITEM_FIELDS.forEach((field) => {
-    if (body[field] !== undefined) {
-      clean[field] = typeof body[field] === 'string' ? body[field].trim() : body[field];
-    }
+    const value = body[field];
+    if (value === undefined) return;
+    if (field === 'supplier' && (value === null || isBlank(value))) clean[field] = null;
+    else clean[field] = typeof value === 'string' ? cleanText(value) : value;
   });
   req.body = clean;
   next();
