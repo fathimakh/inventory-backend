@@ -12,6 +12,12 @@ const {
   adjustStock,
   deleteItem,
 } = require('../controllers/inventoryController');
+const {
+  validateId,
+  validateItem,
+  validateItemUpdate,
+  validateStockAdjustment,
+} = require('../middleware/validation');
 const { methodNotAllowed } = require('../middleware/errorHandler');
 
 const router = express.Router();
@@ -20,22 +26,22 @@ const router = express.Router();
 router
   .route('/')
   .get(getAllItems) // fetch all items
-  .post(createItem) // add an item
+  .post(validateItem, createItem) // add an item
   .all(methodNotAllowed(['GET', 'POST']));
 
 // /api/inventory/:id
 router
   .route('/:id')
-  .get(getItemById) // fetch one item
-  .put(replaceItem) // replace an item
-  .patch(updateItem) // partially update an item
-  .delete(deleteItem) // delete an item
+  .get(validateId, getItemById) // fetch one item
+  .put(validateId, validateItem, replaceItem) // replace an item
+  .patch(validateId, validateItemUpdate, updateItem) // partially update an item
+  .delete(validateId, deleteItem) // delete an item
   .all(methodNotAllowed(['GET', 'PUT', 'PATCH', 'DELETE']));
 
 // /api/inventory/:id/stock
 router
   .route('/:id/stock')
-  .patch(adjustStock) // increase / decrease stock
+  .patch(validateId, validateStockAdjustment, adjustStock) // increase / decrease stock
   .all(methodNotAllowed(['PATCH']));
 
 module.exports = router;
