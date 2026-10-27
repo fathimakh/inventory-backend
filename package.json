@@ -1,0 +1,30 @@
+{
+  "name": "inventory-backend",
+  "version": "1.0.0",
+  "description": "Simple Inventory Management System - backend-only REST API built with Node.js + Express using in-memory array storage",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "inventory",
+    "express",
+    "nodejs",
+    "rest-api",
+    "in-memory"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment variables (copy .env.example to .env)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor files
+.DS_Store
+.vscode/
+.idea/
