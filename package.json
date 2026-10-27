@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test:api": "npx --yes newman@6 run postman/Inventory-API.postman_collection.json -e postman/Inventory-API.postman_environment.json"
   },
   "keywords": [
     "inventory",

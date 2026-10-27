@@ -1,0 +1,2513 @@
+{
+  "info": {
+    "name": "Inventory Management API (Assignment 12)",
+    "description": "Postman collection for the inventory-backend REST API (Node.js + Express, in-memory array storage).\n\nStart the server with `npm run dev`, select the \"Inventory API - Local\" environment (or use the collection variable baseUrl) and run the whole collection in order with the Collection Runner. Requests in folders 3-5 use ids saved by folder 2.\n\nEvery request has tests; a collection-level test checks that every response is JSON with the standard success/error shape.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+          "const json = pm.response.json();",
+          "if (pm.response.code >= 400) {",
+          "  pm.test('Error response has the standard shape', () => {",
+          "    pm.expect(json.success).to.equal(false);",
+          "    pm.expect(json.error).to.be.an('object');",
+          "    pm.expect(json.error.statusCode).to.equal(pm.response.code);",
+          "    pm.expect(json.error.code).to.be.a('string');",
+          "    pm.expect(json.error.message).to.be.a('string');",
+          "  });",
+          "} else {",
+          "  pm.test('Success response has success: true', () => pm.expect(json.success).to.equal(true));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5012",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health & Info",
+      "description": "Basic checks that the server is up.",
+      "item": [
+        {
+          "name": "API info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Lists the available endpoints."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Lists endpoints', () => pm.expect(pm.response.json().data.endpoints).to.be.an('object'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is ok and item count is reported', () => {",
+                  "  const health = pm.response.json().data;",
+                  "  pm.expect(health.status).to.equal('ok');",
+                  "  pm.expect(health.itemsInMemory).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Read (fetch all & single)",
+      "description": "Fetch all items and a single item.",
+      "item": [
+        {
+          "name": "Get all items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "description": "Returns every item in the in-memory array."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('data is an array and count matches', () => {",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.count).to.equal(body.data.length);",
+                  "  pm.expect(body.total).to.equal(body.data.length);",
+                  "});",
+                  "pm.test('No filters applied, default sort', () => {",
+                  "  pm.expect(body.filters).to.eql({});",
+                  "  pm.expect(body.sort).to.eql({ sortBy: 'id', order: 'asc' });",
+                  "});",
+                  "pm.test('Items have the expected shape', () => {",
+                  "  body.data.forEach((item) => {",
+                  "    pm.expect(item).to.have.all.keys('id', 'name', 'category', 'quantity', 'price', 'supplier', 'createdAt', 'updatedAt');",
+                  "    pm.expect(item.id).to.be.a('number');",
+                  "    pm.expect(item.quantity).to.be.a('number');",
+                  "  });",
+                  "});",
+                  "if (body.data.length) pm.collectionVariables.set('existingId', body.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get single item by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{existingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{existingId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns the requested item', () => {",
+                  "  pm.expect(pm.response.json().data.id).to.equal(Number(pm.collectionVariables.get('existingId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Create",
+      "description": "Add items (POST) and the validation / duplicate checks on create.",
+      "item": [
+        {
+          "name": "Create item A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "description": "Creates an item. The pre-request script generates unique names and a unique category for this run.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{itemName}}\",\n  \"category\": \"{{testCategory}}\",\n  \"quantity\": 25,\n  \"price\": 1299.5,\n  \"supplier\": \"Philips\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const runId = String(Date.now());",
+                  "pm.collectionVariables.set('runId', runId);",
+                  "pm.collectionVariables.set('testCategory', 'QA-Lighting-' + runId);",
+                  "pm.collectionVariables.set('itemName', 'QA Desk Lamp ' + runId);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "const { data: item, message } = pm.response.json();",
+                  "pm.test('Returns the created item', () => {",
+                  "  pm.expect(message).to.equal('Item created successfully');",
+                  "  pm.expect(item.id).to.be.a('number');",
+                  "  pm.expect(item.name).to.equal(pm.collectionVariables.get('itemName'));",
+                  "  pm.expect(item.category).to.equal(pm.collectionVariables.get('testCategory'));",
+                  "  pm.expect(item.quantity).to.equal(25);",
+                  "  pm.expect(item.price).to.equal(1299.5);",
+                  "  pm.expect(item.supplier).to.equal('Philips');",
+                  "  pm.expect(item.createdAt).to.equal(item.updatedAt);",
+                  "});",
+                  "pm.test('Location header points to the new item', () => {",
+                  "  pm.expect(pm.response.headers.get('Location')).to.equal('/api/inventory/' + item.id);",
+                  "});",
+                  "pm.collectionVariables.set('itemId', item.id);",
+                  "pm.collectionVariables.set('itemCreatedAt', item.createdAt);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create item B (out of stock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QA Floor Lamp {{runId}}\",\n  \"category\": \"{{testCategory}}\",\n  \"quantity\": 0,\n  \"price\": 2499\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "const { data: item } = pm.response.json();",
+                  "pm.test('supplier defaults to null', () => pm.expect(item.supplier).to.equal(null));",
+                  "pm.collectionVariables.set('itemId2', item.id);",
+                  "pm.collectionVariables.set('itemName2', item.name);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create item C (strings are trimmed)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"   QA Bulb Pack {{runId}}   \",\n  \"category\": \"{{testCategory}}\",\n  \"quantity\": 7,\n  \"price\": 349,\n  \"supplier\": \"  Syska  \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "const { data: item } = pm.response.json();",
+                  "pm.test('Leading/trailing spaces are trimmed', () => {",
+                  "  pm.expect(item.name).to.equal('QA Bulb Pack ' + pm.collectionVariables.get('runId'));",
+                  "  pm.expect(item.supplier).to.equal('Syska');",
+                  "});",
+                  "pm.collectionVariables.set('itemId3', item.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - duplicate name (case-insensitive) -> 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{dupName}}\",\n  \"category\": \"Lighting\",\n  \"quantity\": 1,\n  \"price\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('dupName', '  ' + pm.collectionVariables.get('itemName').toUpperCase() + ' ');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code is DUPLICATE_ITEM', () => pm.expect(pm.response.json().error.code).to.equal('DUPLICATE_ITEM'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - missing required fields -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: name, category, quantity, price', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"name\",\"category\",\"quantity\",\"price\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - invalid field types/values -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"   \",\n  \"category\": 123,\n  \"quantity\": -5,\n  \"price\": \"free\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: name, category, quantity, price', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"name\",\"category\",\"quantity\",\"price\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - decimal quantity & 3-decimal price -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QA Half Item\",\n  \"category\": \"Lighting\",\n  \"quantity\": 2.5,\n  \"price\": 10.999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: quantity, price', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"quantity\",\"price\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - read-only & unknown fields -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"QA Sneaky Item\",\n  \"category\": \"Lighting\",\n  \"quantity\": 1,\n  \"price\": 10,\n  \"colour\": \"red\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: id, colour', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"id\",\"colour\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - malformed JSON -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Broken item\", \"category\": ",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is INVALID_JSON', () => pm.expect(pm.response.json().error.code).to.equal('INVALID_JSON'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - array body -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[{ \"name\": \"QA Array Item\" }]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: body', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"body\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create - non-JSON Content-Type -> 415",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "name=QA Text Item",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 415', () => pm.response.to.have.status(415));",
+                  "pm.test('Error code is UNSUPPORTED_MEDIA_TYPE', () => pm.expect(pm.response.json().error.code).to.equal('UNSUPPORTED_MEDIA_TYPE'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Update (PUT / PATCH / stock)",
+      "description": "Full replace, partial update and stock adjustments with their checks.",
+      "item": [
+        {
+          "name": "Replace item A (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{itemName}}\",\n  \"category\": \"{{testCategory}}\",\n  \"quantity\": 30,\n  \"price\": 1499\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('itemName', 'QA Desk Lamp Pro ' + pm.collectionVariables.get('runId'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const { data: item } = pm.response.json();",
+                  "pm.test('All fields replaced; omitted supplier reset to null', () => {",
+                  "  pm.expect(item.id).to.equal(Number(pm.collectionVariables.get('itemId')));",
+                  "  pm.expect(item.name).to.equal(pm.collectionVariables.get('itemName'));",
+                  "  pm.expect(item.quantity).to.equal(30);",
+                  "  pm.expect(item.price).to.equal(1499);",
+                  "  pm.expect(item.supplier).to.equal(null);",
+                  "});",
+                  "pm.test('createdAt is preserved', () => pm.expect(item.createdAt).to.equal(pm.collectionVariables.get('itemCreatedAt')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT - missing fields -> 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Only A Name\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: category, quantity, price', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"category\",\"quantity\",\"price\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT - non-existent id -> 404",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "999999"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QA Ghost Item\",\n  \"category\": \"Lighting\",\n  \"quantity\": 1,\n  \"price\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code is ITEM_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.equal('ITEM_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Partial update item A (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 1199,\n  \"supplier\": \"Wipro\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const { data: item } = pm.response.json();",
+                  "pm.test('Only the sent fields changed', () => {",
+                  "  pm.expect(item.price).to.equal(1199);",
+                  "  pm.expect(item.supplier).to.equal('Wipro');",
+                  "  pm.expect(item.name).to.equal(pm.collectionVariables.get('itemName'));",
+                  "  pm.expect(item.quantity).to.equal(30);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - empty body -> 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: body', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"body\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - id is read-only -> 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: id', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"id\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - rename to an existing name -> 409",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId3}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId3}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{itemName2}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code is DUPLICATE_ITEM', () => pm.expect(pm.response.json().error.code).to.equal('DUPLICATE_ITEM'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - invalid id -> 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "abc"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is INVALID_ID', () => pm.expect(pm.response.json().error.code).to.equal('INVALID_ID'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stock - restock +10",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}",
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustment\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantity increased 30 -> 40', () => pm.expect(pm.response.json().data.quantity).to.equal(40));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stock - sell -5",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}",
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustment\": -5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Quantity decreased 40 -> 35', () => pm.expect(pm.response.json().data.quantity).to.equal(35));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stock - sell more than available -> 409",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}",
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustment\": -100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code is INSUFFICIENT_STOCK', () => pm.expect(pm.response.json().error.code).to.equal('INSUFFICIENT_STOCK'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stock - invalid adjustment -> 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}",
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustment\": \"5\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: adjustment', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"adjustment\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get item A after updates (failed requests changed nothing)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const { data: item } = pm.response.json();",
+                  "pm.test('State reflects only the successful updates', () => {",
+                  "  pm.expect(item.quantity).to.equal(35);",
+                  "  pm.expect(item.price).to.equal(1199);",
+                  "  pm.expect(item.name).to.equal(pm.collectionVariables.get('itemName'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Query (filter / search / sort / paginate)",
+      "description": "Filtering by category and quantity, searching by name, sorting and pagination. Items A (qty 35), B (qty 0) and C (qty 7) share a unique category created for this run.",
+      "item": [
+        {
+          "name": "Filter by category (case-insensitive)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category={{testCategoryLower}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{testCategoryLower}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('testCategoryLower', pm.collectionVariables.get('testCategory').toLowerCase());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns exactly items A, B and C', () => pm.expect(ids(body.data)).to.have.members([A, B, C]));",
+                  "pm.test('Every item is in the category', () => body.data.forEach((i) => pm.expect(i.category.toLowerCase()).to.equal(pm.variables.get('testCategoryLower'))));",
+                  "pm.test('Applied filter is echoed back', () => pm.expect(body.filters).to.eql({ category: pm.variables.get('testCategoryLower') }));",
+                  "pm.test('count and total are 3', () => { pm.expect(body.count).to.equal(3); pm.expect(body.total).to.equal(3); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by category + minQty",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category={{testCategory}}&minQty=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{testCategory}}"
+                },
+                {
+                  "key": "minQty",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns A (35) and C (7) only', () => pm.expect(ids(body.data)).to.have.members([A, C]));",
+                  "pm.test('minQty echoed as a number', () => pm.expect(body.filters.minQty).to.equal(5));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by category + maxQty",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category={{testCategory}}&maxQty=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{testCategory}}"
+                },
+                {
+                  "key": "maxQty",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "pm.test('Returns B (0) and C (7) only', () => pm.expect(ids(pm.response.json().data)).to.have.members([B, C]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by exact quantity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category={{testCategory}}&quantity=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{testCategory}}"
+                },
+                {
+                  "key": "quantity",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "pm.test('Returns B only', () => pm.expect(ids(pm.response.json().data)).to.eql([B]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by quantity range (all items)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?minQty=5&maxQty=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "minQty",
+                  "value": "5"
+                },
+                {
+                  "key": "maxQty",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every item is within 5..50', () => body.data.forEach((i) => pm.expect(i.quantity).to.be.within(5, 50)));",
+                  "pm.test('Filters echoed', () => pm.expect(body.filters).to.eql({ minQty: 5, maxQty: 50 }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter out-of-stock items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?inStock=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "inStock",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every item has quantity 0', () => body.data.forEach((i) => pm.expect(i.quantity).to.equal(0)));",
+                  "pm.test('Includes item B', () => pm.expect(body.data.map((i) => i.id)).to.include(Number(pm.collectionVariables.get('itemId2'))));",
+                  "pm.test('inStock echoed as boolean', () => pm.expect(body.filters.inStock).to.equal(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search by name (list endpoint)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?search=LAMP",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "LAMP"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every name contains \"lamp\" (case-insensitive)', () => body.data.forEach((i) => pm.expect(i.name.toLowerCase()).to.include('lamp')));",
+                  "pm.test('Finds items A and B', () => pm.expect(body.data.map((i) => i.id)).to.include.members([Number(pm.collectionVariables.get('itemId')), Number(pm.collectionVariables.get('itemId2'))]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search endpoint by name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/search?name={{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "{{runId}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "const body = pm.response.json();",
+                  "pm.test('Finds A, B and C', () => pm.expect(ids(body.data)).to.have.members([A, B, C]));",
+                  "pm.test('Message mentions the search term', () => pm.expect(body.message).to.include(pm.collectionVariables.get('runId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search endpoint + filter (inStock=true)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/search?name={{runId}}&inStock=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "{{runId}}"
+                },
+                {
+                  "key": "inStock",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "pm.test('Finds only in-stock A and C', () => pm.expect(ids(pm.response.json().data)).to.have.members([A, C]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search - no matches -> empty list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/search?name=zzz-no-such-item",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "zzz-no-such-item"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Empty data with count 0', () => { pm.expect(body.data).to.eql([]); pm.expect(body.count).to.equal(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sort by quantity desc",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category={{testCategory}}&sortBy=quantity&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{testCategory}}"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "quantity"
+                },
+                {
+                  "key": "order",
+                  "value": "desc"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "const body = pm.response.json();",
+                  "pm.test('Order is A (35), C (7), B (0)', () => pm.expect(ids(body.data)).to.eql([A, C, B]));",
+                  "pm.test('Sort echoed', () => pm.expect(body.sort).to.eql({ sortBy: 'quantity', order: 'desc' }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sort all items by price desc",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?sortBy=price&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "price"
+                },
+                {
+                  "key": "order",
+                  "value": "desc"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const prices = pm.response.json().data.map((i) => i.price);",
+                  "pm.test('Prices are in descending order', () => prices.forEach((p, i) => i && pm.expect(p).to.be.at.most(prices[i - 1])));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pagination (page 2, limit 2)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category={{testCategory}}&sortBy=quantity&page=2&limit=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{testCategory}}"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "quantity"
+                },
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "limit",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const ids = (list) => list.map((i) => i.id);",
+                  "const A = Number(pm.collectionVariables.get('itemId'));",
+                  "const B = Number(pm.collectionVariables.get('itemId2'));",
+                  "const C = Number(pm.collectionVariables.get('itemId3'));",
+                  "const body = pm.response.json();",
+                  "pm.test('Page 2 holds the last item (A)', () => pm.expect(ids(body.data)).to.eql([A]));",
+                  "pm.test('count/total/pagination are correct', () => {",
+                  "  pm.expect(body.count).to.equal(1);",
+                  "  pm.expect(body.total).to.equal(3);",
+                  "  pm.expect(body.pagination).to.eql({ page: 2, limit: 2, totalPages: 2, hasNextPage: false, hasPrevPage: true });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Query - non-numeric minQty -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?minQty=abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "minQty",
+                  "value": "abc"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: minQty', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"minQty\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Query - minQty greater than maxQty -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?minQty=50&maxQty=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "minQty",
+                  "value": "50"
+                },
+                {
+                  "key": "maxQty",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: minQty', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"minQty\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Query - unknown parameter -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?colour=red",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "colour",
+                  "value": "red"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: colour', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"colour\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Query - repeated parameter -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category=Electronics&category=Furniture",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Electronics"
+                },
+                {
+                  "key": "category",
+                  "value": "Furniture"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: category', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"category\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Query - invalid sortBy / order / limit -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?sortBy=colour&order=up&limit=500",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "colour"
+                },
+                {
+                  "key": "order",
+                  "value": "up"
+                },
+                {
+                  "key": "limit",
+                  "value": "500"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: sortBy, order, limit', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"sortBy\",\"order\",\"limit\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search - missing name -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "search"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: name', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"name\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Delete",
+      "description": "Delete items and the checks around missing / invalid ids. Also cleans up the items created by this run.",
+      "item": [
+        {
+          "name": "Delete item A",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns the deleted item', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.message).to.equal('Item deleted successfully');",
+                  "  pm.expect(body.data.id).to.equal(Number(pm.collectionVariables.get('itemId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get deleted item -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code is ITEM_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.equal('ITEM_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete same item again -> 404",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code is ITEM_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.equal('ITEM_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete - invalid id -> 400",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/-1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "-1"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is INVALID_ID', () => pm.expect(pm.response.json().error.code).to.equal('INVALID_ID'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete item B (cleanup)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId2}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete item C (cleanup)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{itemId3}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{itemId3}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Category is empty after cleanup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category={{testCategory}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{testCategory}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No items left in the test category', () => pm.expect(pm.response.json().total).to.equal(0));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Errors (404 / 405 / bad ids)",
+      "description": "Every error uses the same JSON shape from the centralized error handler.",
+      "item": [
+        {
+          "name": "Unknown route -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/does-not-exist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "does-not-exist"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code is ROUTE_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.equal('ROUTE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-existent item -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "999999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code is ITEM_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.equal('ITEM_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid id format -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "abc"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is INVALID_ID', () => pm.expect(pm.response.json().error.code).to.equal('INVALID_ID'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported method -> 405",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 405', () => pm.response.to.have.status(405));",
+                  "pm.test('Error code is METHOD_NOT_ALLOWED', () => pm.expect(pm.response.json().error.code).to.equal('METHOD_NOT_ALLOWED'));",
+                  "pm.test('Allow header lists GET, POST', () => pm.expect(pm.response.headers.get('Allow')).to.equal('GET, POST'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
