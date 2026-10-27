@@ -19,6 +19,18 @@
 let inventory = [];
 let nextId = 1; // incremented on every insert, so deleted ids are never reused
 
+// Field limits shared by the validation middleware and the controller
+const LIMITS = Object.freeze({
+  NAME_MIN: 2,
+  NAME_MAX: 100,
+  CATEGORY_MIN: 2,
+  CATEGORY_MAX: 50,
+  SUPPLIER_MIN: 2,
+  SUPPLIER_MAX: 100,
+  MAX_QUANTITY: 1000000,
+  MAX_PRICE: 10000000,
+});
+
 // Sample data so the API can be explored right after `npm run dev`
 const SAMPLE_ITEMS = [
   { name: 'Wireless Mouse', category: 'Electronics', quantity: 45, price: 799, supplier: 'Logitech' },
@@ -166,6 +178,7 @@ const seed = () => {
 };
 
 module.exports = {
+  LIMITS,
   findAll,
   findById,
   findByName,
