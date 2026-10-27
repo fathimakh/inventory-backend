@@ -130,7 +130,7 @@ const buildItemValidator = ({ partial }) => (req, res, next) => {
   });
 
   // PUT is a full replacement; point clients that only send some fields to PATCH
-  const missingRequired = details.some((d) => d.message.endsWith(' is required'));
+  const missingRequired = REQUIRED_FIELDS.some((field) => body[field] === undefined);
   if (!partial && missingRequired && req.method === 'PUT') {
     details.push({
       field: 'body',
