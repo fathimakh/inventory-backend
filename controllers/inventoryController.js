@@ -93,16 +93,15 @@ const queryInventory = (filters) => {
 };
 
 /**
- * e.g. "8 item(s) found", "1 item(s) matching "desk" found",
+ * e.g. "8 item(s) found", "0 item(s) found", "1 item(s) matching "desk" found",
  * "Showing 3 of 8 item(s) (page 2 of 3)", "Page 9 is out of range: 8 item(s) fit on 2 page(s)"
  */
 const listMessage = ({ items, total, pagination }, term) => {
   const what = term === undefined ? 'item(s)' : `item(s) matching "${term}"`;
-  if (!pagination) return `${total} ${what} found`;
+  if (!pagination || total === 0) return `${total} ${what} found`;
 
   const { page, totalPages } = pagination;
   if (page > totalPages) return `Page ${page} is out of range: ${total} ${what} fit on ${totalPages} page(s)`;
-  if (total === 0) return `0 ${what} found`;
   return `Showing ${items.length} of ${total} ${what} (page ${page} of ${totalPages})`;
 };
 
