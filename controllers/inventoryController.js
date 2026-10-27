@@ -35,7 +35,10 @@ const matchesFilters = (item, filters) => {
   if (quantity !== undefined && item.quantity !== quantity) return false;
   if (minQty !== undefined && item.quantity < minQty) return false;
   if (maxQty !== undefined && item.quantity > maxQty) return false;
-  if (inStock !== undefined && item.quantity > 0 !== inStock) return false;
+  if (inStock !== undefined) {
+    const isInStock = item.quantity > 0;
+    if (isInStock !== inStock) return false;
+  }
   return true;
 };
 
@@ -87,8 +90,18 @@ const queryInventory = (filters) => {
   return result;
 };
 
+// e.g. "8 item(s) found", "Showing 3 of 8 item(s) (page 2 of 3)", "Page 9 is out of range ..."
+const listMessage = ({ items, total, pagination }) => {
+  if (!pagination || total === 0) return `${total} item(s) found`;
+  const { page, totalPages } = pagination;
+  if (page > totalPages) {
+    return `Page ${page} is out of range: ${total} item(s) fit on ${totalPages} page(s)`;
+  }
+  return `Showing ${items.length} of ${total} item(s) (page ${page} of ${totalPages})`;
+};
+
 // List responses: { success, message, count, total, filters, sort, pagination?, data }
-const sendList = (res, result, message) => {
+const sendList = (res, result, message = listMessage(result)) => {
   const { items, total, filters, sort, pagination } = result;
   sendSuccess(res, 200, {
     message,
@@ -109,8 +122,7 @@ const sendList = (res, result, message) => {
  * name (?name= or ?search=), sorted and paginated through query params.
  */
 const getAllItems = (req, res) => {
-  const result = queryInventory(req.filters);
-  sendList(res, result, `${result.total} item(s) found`);
+  sendList(res, queryInventory(req.filters));
 };
 
 /**
@@ -120,7 +132,7 @@ const getAllItems = (req, res) => {
 const searchItems = (req, res) => {
   const result = queryInventory(req.filters);
   const term = req.filters.name ?? req.filters.search;
-  sendList(res, result, `${result.total} item(s) found matching "${term}"`);
+  sendList(res, result, `${listMessage(result)} matching "${term}"`);
 };
 
 /**
