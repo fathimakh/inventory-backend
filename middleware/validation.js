@@ -179,12 +179,11 @@ const validateStockAdjustment = (req, res, next) => {
 const SORT_FIELDS = ['id', 'name', 'category', 'quantity', 'price', 'createdAt', 'updatedAt'];
 const MAX_PAGE_LIMIT = 100;
 
-const FILTER_PARAMS = ['category', 'quantity', 'minQty', 'maxQty', 'inStock'];
-const LIST_OPTION_PARAMS = ['sortBy', 'order', 'page', 'limit'];
+// name and search are aliases for the same partial, case-insensitive name search
+const QUERY_PARAMS = ['name', 'search', 'category', 'quantity', 'minQty', 'maxQty', 'inStock', 'sortBy', 'order', 'page', 'limit'];
 
 const textParam = (raw, param, max) => {
   const value = raw.trim();
-  if (value.length === 0) return { error: `${param} cannot be empty` };
   if (value.length > max) return { error: `${param} must be at most ${max} characters` };
   return { value };
 };
@@ -206,9 +205,9 @@ const choiceParam = (raw, param, choices) => {
 
 // One parser per supported query parameter: returns { value } or { error }
 const QUERY_PARSERS = {
-  category: (raw) => textParam(raw, 'category', LIMITS.CATEGORY_MAX),
-  search: (raw) => textParam(raw, 'search', LIMITS.NAME_MAX),
   name: (raw) => textParam(raw, 'name', LIMITS.NAME_MAX),
+  search: (raw) => textParam(raw, 'search', LIMITS.NAME_MAX),
+  category: (raw) => textParam(raw, 'category', LIMITS.CATEGORY_MAX),
   quantity: (raw) => wholeNumberParam(raw, 'quantity', 0, LIMITS.MAX_QUANTITY),
   minQty: (raw) => wholeNumberParam(raw, 'minQty', 0, LIMITS.MAX_QUANTITY),
   maxQty: (raw) => wholeNumberParam(raw, 'maxQty', 0, LIMITS.MAX_QUANTITY),
@@ -226,8 +225,10 @@ const QUERY_PARSERS = {
  * Builds a query-string validator. Valid, converted values (numbers,
  * booleans, trimmed strings) are stored on req.filters for the controller,
  * because req.query is read-only in Express 5.
+ * - Unknown or repeated params are rejected (catches typos like ?catgory=).
+ * - Blank params (e.g. ?category=) are treated as not supplied.
  */
-const buildQueryValidator = ({ allowed, required = [] }) => (req, res, next) => {
+const buildQueryValidator = ({ requireSearchTerm = false } = {}) => (req, res, next) => {
   const query = req.query;
   const details = [];
   const filters = {};
@@ -235,21 +236,30 @@ const buildQueryValidator = ({ allowed, required = [] }) => (req, res, next) => 
   Object.keys(query).forEach((param) => {
     const raw = query[param];
 
-    if (!allowed.includes(param)) {
-      details.push({ field: param, message: `Unknown query parameter "${param}". Allowed: ${allowed.join(', ')}` });
+    if (!QUERY_PARAMS.includes(param)) {
+      details.push({ field: param, message: `Unknown query parameter "${param}". Allowed: ${QUERY_PARAMS.join(', ')}` });
     } else if (Array.isArray(raw)) {
       details.push({ field: param, message: `${param} can only be provided once` });
-    } else {
+    } else if (raw.trim() !== '') {
       const { value, error } = QUERY_PARSERS[param](raw);
       if (error) details.push({ field: param, message: error });
       else filters[param] = value;
     }
   });
 
-  required.forEach((param) => {
-    if (query[param] === undefined) details.push({ field: param, message: `${param} query parameter is required` });
-  });
-
+  if (filters.name !== undefined && filters.search !== undefined) {
+    details.push({ field: 'search', message: 'name and search are aliases; send only one of them' });
+  }
+  const hasSearchTerm = filters.name !== undefined || filters.search !== undefined;
+  const searchTermFailed = details.some((d) => d.field === 'name' || d.field === 'search');
+  if (requireSearchTerm && !hasSearchTerm && !searchTermFailed) {
+    if (query.name === undefined && query.search === undefined) {
+      details.push({ field: 'name', message: 'name query parameter is required (e.g. ?name=mouse)' });
+    } else {
+      const sent = query.name !== undefined ? 'name' : 'search';
+      details.push({ field: sent, message: `${sent} cannot be empty` });
+    }
+  }
   if (filters.minQty !== undefined && filters.maxQty !== undefined && filters.minQty > filters.maxQty) {
     details.push({ field: 'minQty', message: 'minQty cannot be greater than maxQty' });
   }
@@ -262,16 +272,11 @@ const buildQueryValidator = ({ allowed, required = [] }) => (req, res, next) => 
   next();
 };
 
-/** GET /api/inventory?category=&search=&quantity=&minQty=&maxQty=&inStock=&sortBy=&order=&page=&limit= */
-const validateListQuery = buildQueryValidator({
-  allowed: ['search', ...FILTER_PARAMS, ...LIST_OPTION_PARAMS],
-});
+/** GET /api/inventory?name|search=&category=&quantity=&minQty=&maxQty=&inStock=&sortBy=&order=&page=&limit= */
+const validateListQuery = buildQueryValidator();
 
-/** GET /api/inventory/search?name=  (plus the same optional filters) */
-const validateSearchQuery = buildQueryValidator({
-  allowed: ['name', ...FILTER_PARAMS, ...LIST_OPTION_PARAMS],
-  required: ['name'],
-});
+/** GET /api/inventory/search?name=  (name or search is required; the other filters are optional) */
+const validateSearchQuery = buildQueryValidator({ requireSearchTerm: true });
 
 module.exports = {
   validateId,

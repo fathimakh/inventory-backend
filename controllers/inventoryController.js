@@ -106,7 +106,7 @@ const sendList = (res, result, message) => {
 /**
  * GET /api/inventory
  * Fetch all items, optionally filtered by category / quantity, searched by
- * name, sorted and paginated through query params.
+ * name (?name= or ?search=), sorted and paginated through query params.
  */
 const getAllItems = (req, res) => {
   const result = queryInventory(req.filters);
@@ -114,12 +114,13 @@ const getAllItems = (req, res) => {
 };
 
 /**
- * GET /api/inventory/search?name=
+ * GET /api/inventory/search?name=   (?search= works too)
  * Search items by (partial, case-insensitive) name.
  */
 const searchItems = (req, res) => {
   const result = queryInventory(req.filters);
-  sendList(res, result, `${result.total} item(s) found matching "${req.filters.name}"`);
+  const term = req.filters.name ?? req.filters.search;
+  sendList(res, result, `${result.total} item(s) found matching "${term}"`);
 };
 
 /**
