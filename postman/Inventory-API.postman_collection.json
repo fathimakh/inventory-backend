@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Inventory Management API (Assignment 12)",
-    "description": "Postman collection for the inventory-backend REST API (Node.js + Express, in-memory array storage).\n\nStart the server with `npm run dev`, select the \"Inventory API - Local\" environment (or use the collection variable baseUrl) and run the whole collection in order with the Collection Runner. Requests in folders 3-5 use ids saved by folder 2.\n\nEvery request has tests; a collection-level test checks that every response is JSON with the standard success/error shape.",
+    "description": "Postman collection for the inventory-backend REST API (Node.js + Express, in-memory array storage).\n\nStart the server with `npm run dev` and select the \"Inventory API - Local\" environment (or use the collection variable baseUrl).\n\n- **Quick demo** folder: send any request on its own (filters and search use the 8 sample items; update/delete create a demo item first if needed).\n- **Folders 0-6**: the full automated test suite. Run the whole collection in order with the Collection Runner: folder 2 creates the test items that folders 3-5 use, and folder 5 deletes them again.\n\nEvery request has tests; a collection-level test checks that every response is JSON with the standard success/error shape.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -35,6 +35,769 @@
     }
   ],
   "item": [
+    {
+      "name": "Quick demo (send any request on its own)",
+      "description": "Works request by request: the queries use the 8 sample items loaded on startup, and the update/delete requests create a demo item first if needed. The numbered folders below are the full automated test suite (run them in order with the Collection Runner).",
+      "item": [
+        {
+          "name": "Get all items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns a list', () => pm.expect(pm.response.json().data).to.be.an('array').that.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category=Electronics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Electronics"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every item is in Electronics', () => body.data.forEach((item) => pm.expect(item.category.toLowerCase() === 'electronics').to.equal(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by quantity range (minQty / maxQty)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?minQty=10&maxQty=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "minQty",
+                  "value": "10"
+                },
+                {
+                  "key": "maxQty",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every quantity is between 10 and 50', () => body.data.forEach((item) => pm.expect(item.quantity >= 10 && item.quantity <= 50).to.equal(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by exact quantity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?quantity=8",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "quantity",
+                  "value": "8"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every quantity is 8', () => body.data.forEach((item) => pm.expect(item.quantity === 8).to.equal(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter out-of-stock items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?inStock=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "inStock",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every item has quantity 0', () => body.data.forEach((item) => pm.expect(item.quantity === 0).to.equal(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search by name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?name=mouse",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "mouse"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every name contains \"mouse\"', () => body.data.forEach((item) => pm.expect(item.name.toLowerCase().includes('mouse')).to.equal(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/search?name=desk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "desk"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every name contains \"desk\"', () => body.data.forEach((item) => pm.expect(item.name.toLowerCase().includes('desk')).to.equal(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter + search combined",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?category=Electronics&minQty=10&name=mouse",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Electronics"
+                },
+                {
+                  "key": "minQty",
+                  "value": "10"
+                },
+                {
+                  "key": "name",
+                  "value": "mouse"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Every item matches all three filters', () => body.data.forEach((item) => pm.expect(item.category.toLowerCase() === 'electronics' && item.quantity >= 10 && item.name.toLowerCase().includes('mouse')).to.equal(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sort by price (desc) + paginate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory?sortBy=price&order=desc&page=1&limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "price"
+                },
+                {
+                  "key": "order",
+                  "value": "desc"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const prices = body.data.map((i) => i.price);",
+                  "pm.test('At most 3 items, most expensive first', () => {",
+                  "  pm.expect(body.data.length).to.be.at.most(3);",
+                  "  prices.forEach((p, i) => i && pm.expect(p).to.be.at.most(prices[i - 1]));",
+                  "});",
+                  "pm.test('Pagination info is returned', () => pm.expect(body.pagination).to.include({ page: 1, limit: 3 }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get one item",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "1"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns item 1', () => pm.expect(pm.response.json().data.id).to.equal(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add an item (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{demoName}}\",\n  \"category\": \"Demo\",\n  \"quantity\": 20,\n  \"price\": 1299.5,\n  \"supplier\": \"Philips\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('demoName', 'Demo Desk Lamp ' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "const { data: item } = pm.response.json();",
+                  "pm.test('Returns the new item with an id', () => pm.expect(item.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('demoId', item.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace the demo item (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{demoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{demoId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo LED Lamp #{{demoId}}\",\n  \"category\": \"Demo\",\n  \"quantity\": 25,\n  \"price\": 1499,\n  \"supplier\": \"Philips\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Makes this request work on its own: creates a demo item first if there is none yet",
+                  "const baseUrl = pm.variables.get('baseUrl');",
+                  "const createDemoItem = () => pm.sendRequest({",
+                  "  url: baseUrl + '/api/inventory',",
+                  "  method: 'POST',",
+                  "  header: { 'Content-Type': 'application/json' },",
+                  "  body: { mode: 'raw', raw: JSON.stringify({ name: 'Demo Desk Lamp ' + Date.now(), category: 'Demo', quantity: 20, price: 1299.5, supplier: 'Philips' }) },",
+                  "}, (err, res) => {",
+                  "  if (!err && res.code === 201) pm.collectionVariables.set('demoId', res.json().data.id);",
+                  "});",
+                  "const demoId = pm.collectionVariables.get('demoId');",
+                  "if (!demoId) createDemoItem();",
+                  "else pm.sendRequest(baseUrl + '/api/inventory/' + demoId, (err, res) => { if (err || res.code !== 200) createDemoItem(); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const { data: item } = pm.response.json();",
+                  "pm.test('All fields replaced', () => pm.expect(item).to.include({ quantity: 25, price: 1499, category: 'Demo' }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update some fields (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{demoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{demoId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 1199\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Makes this request work on its own: creates a demo item first if there is none yet",
+                  "const baseUrl = pm.variables.get('baseUrl');",
+                  "const createDemoItem = () => pm.sendRequest({",
+                  "  url: baseUrl + '/api/inventory',",
+                  "  method: 'POST',",
+                  "  header: { 'Content-Type': 'application/json' },",
+                  "  body: { mode: 'raw', raw: JSON.stringify({ name: 'Demo Desk Lamp ' + Date.now(), category: 'Demo', quantity: 20, price: 1299.5, supplier: 'Philips' }) },",
+                  "}, (err, res) => {",
+                  "  if (!err && res.code === 201) pm.collectionVariables.set('demoId', res.json().data.id);",
+                  "});",
+                  "const demoId = pm.collectionVariables.get('demoId');",
+                  "if (!demoId) createDemoItem();",
+                  "else pm.sendRequest(baseUrl + '/api/inventory/' + demoId, (err, res) => { if (err || res.code !== 200) createDemoItem(); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Price updated', () => pm.expect(pm.response.json().data.price).to.equal(1199));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Adjust stock (sell 3)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{demoId}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{demoId}}",
+                "stock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustment\": -3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Makes this request work on its own: creates a demo item first if there is none yet",
+                  "const baseUrl = pm.variables.get('baseUrl');",
+                  "const createDemoItem = () => pm.sendRequest({",
+                  "  url: baseUrl + '/api/inventory',",
+                  "  method: 'POST',",
+                  "  header: { 'Content-Type': 'application/json' },",
+                  "  body: { mode: 'raw', raw: JSON.stringify({ name: 'Demo Desk Lamp ' + Date.now(), category: 'Demo', quantity: 20, price: 1299.5, supplier: 'Philips' }) },",
+                  "}, (err, res) => {",
+                  "  if (!err && res.code === 201) pm.collectionVariables.set('demoId', res.json().data.id);",
+                  "});",
+                  "const demoId = pm.collectionVariables.get('demoId');",
+                  "if (!demoId) createDemoItem();",
+                  "else pm.sendRequest(baseUrl + '/api/inventory/' + demoId, (err, res) => { if (err || res.code !== 200) createDemoItem(); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stock decreased by 3', () => pm.expect(pm.response.json().message).to.match(/^Stock decreased by 3 /));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete the demo item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{demoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "{{demoId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Makes this request work on its own: creates a demo item first if there is none yet",
+                  "const baseUrl = pm.variables.get('baseUrl');",
+                  "const createDemoItem = () => pm.sendRequest({",
+                  "  url: baseUrl + '/api/inventory',",
+                  "  method: 'POST',",
+                  "  header: { 'Content-Type': 'application/json' },",
+                  "  body: { mode: 'raw', raw: JSON.stringify({ name: 'Demo Desk Lamp ' + Date.now(), category: 'Demo', quantity: 20, price: 1299.5, supplier: 'Philips' }) },",
+                  "}, (err, res) => {",
+                  "  if (!err && res.code === 201) pm.collectionVariables.set('demoId', res.json().data.id);",
+                  "});",
+                  "const demoId = pm.collectionVariables.get('demoId');",
+                  "if (!demoId) createDemoItem();",
+                  "else pm.sendRequest(baseUrl + '/api/inventory/' + demoId, (err, res) => { if (err || res.code !== 200) createDemoItem(); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns the deleted item', () => pm.expect(pm.response.json().message).to.equal('Item deleted successfully'));",
+                  "pm.collectionVariables.unset('demoId');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validation error example (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"category\": \"Demo\",\n  \"quantity\": -2,\n  \"price\": \"free\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));",
+                  "pm.test('error.details mention: name, quantity, price', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  [\"name\",\"quantity\",\"price\"].forEach((f) => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Not found example (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "999999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code is ITEM_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.equal('ITEM_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "0. Health & Info",
       "description": "Basic checks that the server is up.",
@@ -840,7 +1603,7 @@
     },
     {
       "name": "3. Update (PUT / PATCH / stock)",
-      "description": "Full replace, partial update and stock adjustments with their checks.",
+      "description": "Full replace, partial update and stock adjustments with their checks. Uses the items created in folder 2, so run the collection in order (Collection Runner).",
       "item": [
         {
           "name": "Replace item A (PUT)",
@@ -1504,7 +2267,7 @@
     },
     {
       "name": "4. Query (filter / search / sort / paginate)",
-      "description": "Filtering by category and quantity, searching by name, sorting and pagination. Items A (qty 35), B (qty 0) and C (qty 7) share a unique category created for this run.",
+      "description": "Filtering by category and quantity, searching by name, sorting and pagination. Items A (qty 35), B (qty 0) and C (qty 7) share a unique category created by folder 2 for this run, so run the collection in order (Collection Runner). To try queries one by one, use the Quick demo folder.",
       "item": [
         {
           "name": "Filter by category (case-insensitive)",
@@ -1534,7 +2297,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.variables.set('testCategoryLower', pm.collectionVariables.get('testCategory').toLowerCase());"
+                  "pm.variables.set('testCategoryLower', (pm.collectionVariables.get('testCategory') || '').toLowerCase());"
                 ]
               }
             },
@@ -2584,7 +3347,7 @@
     },
     {
       "name": "5. Delete",
-      "description": "Delete items and the checks around missing / invalid ids. Also cleans up the items created by this run.",
+      "description": "Delete items and the checks around missing / invalid ids. Also cleans up the items created by folder 2, so run the collection in order (Collection Runner).",
       "item": [
         {
           "name": "Delete item A",
