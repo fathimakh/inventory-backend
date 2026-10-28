@@ -6,6 +6,8 @@ A backend-only REST API for managing inventory items, built with **Node.js + Exp
 All data is kept in an **in-memory array** (`let inventory = []`). There is no database and nothing
 is written to files, so the data resets to the sample items every time the server restarts.
 
+**GitHub repository:** https://github.com/fathimakh/inventory-backend
+
 ---
 
 ## Table of contents
@@ -111,7 +113,7 @@ npm i -D nodemon               # restarts the server on file changes
 
 ```bash
 # 1. Clone the repository and enter the folder
-git clone <repository-url>
+git clone https://github.com/fathimakh/inventory-backend.git
 cd inventory-backend
 
 # 2. Install dependencies
